@@ -2,42 +2,84 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
+use App\Models\Category;
+use App\Models\Tag;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
     public function index()
     {
-        return 'This is a list of tasks';
+        $tasks = Task::with('category', 'tags')->get();
+        return view('tasks.index', compact('tasks'));
     }
+
 
     public function create()
     {
-        return 'Form for creating a task';
+       $categories = Category::all();
+       $tags = Tag::all();
+       return view('tasks.create', compact('categories', 'tags'));
     }
 
+
     public function store(Request $request)
-    {
-        // Позже тут будет логика сохранения
-    }
+   {
+       $validatedData = $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'category_id' => 'required|exists:categories,id',
+        'tags' => 'array|exists:tags,id',
+    ]);
+
+        $task = Task::create($validatedData);
+        $task->tags()->attach($request->tags);
+
+        return redirect()->route('tasks.index')->with('success', 'Task created successfully.');
+   }
+
 
     public function show($id)
     {
-        return "Displaying task with ID: $id";
+       $task = Task::with('category', 'tags')->findOrFail($id);
+        return view('tasks.show', compact('task'));
     }
 
+
     public function edit($id)
-    {
-        return "Form for editing task with ID: $id";
-    }
+   {
+       $task = Task::with('tags')->findOrFail($id);
+       $categories = Category::all();
+       $tags = Tag::all();
+    return view('tasks.edit', compact('task', 'categories', 'tags'));
+    }  
+
 
     public function update(Request $request, $id)
     {
-        // Позже тут будет логика обновления
+    $validatedData = $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'category_id' => 'required|exists:categories,id',
+        'tags' => 'array|exists:tags,id',
+    ]);
+
+       $task = Task::findOrFail($id);
+       $task->update($validatedData);
+       $task->tags()->sync($request->tags);
+
+        return redirect()->route('tasks.index')->with('success', 'Task updated successfully.');
     }
 
+
     public function destroy($id)
-    {
-        // Позже тут будет логика удаления
+   {
+       $task = Task::findOrFail($id);
+       $task->tags()->detach();
+       $task->delete();
+
+        return redirect()->route('tasks.index')->with('success', 'Task deleted successfully.');
     }
+
 }
